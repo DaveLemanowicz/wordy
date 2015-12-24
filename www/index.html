@@ -1,0 +1,192 @@
+<!DOCTYPE HTML> 
+<html> 
+<head> 
+    <meta charset="UTF-8" > 
+    <title>Wordy</title> 
+    <link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="assets/wordy.css" />
+</head>
+<body>
+  <div id="toolbar_container"></div>
+  <div id="content_container"></div>
+ 
+ 
+<!-- ---------------------------------------------------------------- -->
+<!-- Templates                                                        -->
+<!-- ---------------------------------------------------------------- -->
+<script type="text/template" id="toolbar-template" >
+  <img class='settings_icon' src='assets/ic_settings_white_48dp_1x.png'/>
+  <img class='stats_icon' src='assets/ic_insert_chart_white_48dp_1x.png'/>
+  <div style="display: block; clear: both;"></div>
+</script>
+<script type="text/template" id="current-word-template" >
+  <div class="word-view">
+    <div id='progress'><%= progress %></div>
+    <div class='the_word'><%= word %></div>
+    <div class='big_button text-center' id="correct"><p>Correct</p></div>
+    <div class='big_button text-center' id="wrong"><p>Wrong</p></div>
+    <div class='big_button'>
+      <div class='small_button text-center' id="skip">Skip</div>
+      <div class='small_button text-center' id="delete">Delete</div>
+    </div>
+  </div>
+</script>
+
+<script src="js/lib/jquery-1.11.3.js" ></script> 
+<script src="js/lib/underscore-1.8.3.js" ></script> 
+<script src="js/lib/backbone-1.2.3.js" ></script> 
+<script src="js/lib/backbone.localStorage-1.1.16.js" ></script>
+<script src="js/models/word.js" ></script> 
+<script src="js/collections/words.js" ></script> 
+<script src="js/app.js" ></script> 
+<script>
+
+
+var CurrentWord = Backbone.Model.extend({
+  
+    defaults: { 
+        word: "",
+        ID: 1
+    },
+    
+    idAttribute: "word",
+    
+    //url: "http://127.0.0.1:5000/word",
+    urlRoot: "http://127.0.0.1:5000/word",
+    //urlRoot: "http://192.168.1.185:5000/word",
+
+      
+    initialize : function (){
+        console.log("initializing current word");     
+
+    },
+    
+    load: function(){
+      console.log("loading current word");     
+      this.collection = new word_collection();
+      this.collection.fetch({"success": _.bind(this.update, this)});
+
+    },
+    
+    skip: function(){
+      //this.set('word',this.collection.shift().attributes['word']);
+      this.set(this.collection.shift().toJSON());
+      console.log('Remaining count: '+this.collection.length)
+      if (this.collection.length==0){
+         this.collection.fetch();
+      }
+    },
+
+    markCorrect: function(){
+      console.log('Mark word "'+this.attributes.word+'" correct');
+      this.attributes.attempts++;
+      this.attributes.correct_count++;
+      this.attributes.correct_in_a_row++;
+      this.save();
+
+    },
+    markWrong: function(){
+      console.log('Mark word "'+this.attributes.word+'" wrong');
+      this.attributes.attempts++;
+      this.attributes.correct_in_a_row=0;
+      this.save();
+
+    },
+    
+    delete: function(){
+      console.log('deleting word: '+this.attributes.word);
+      this.destroy({"success":function(){console.log('success!')},"error":function(){console.log("failed!!")}});
+
+    },
+    
+    update: function(){
+      console.log("updating current word");     
+      //this.set('word',this.collection.shift().attributes['word']);
+      this.set(this.collection.shift().toJSON());
+    }
+
+  
+});
+var current_word = new CurrentWord()
+
+var toolbar_class = Backbone.View.extend({
+
+   el: $("#toolbar_container"),
+   
+   template: _.template($('#toolbar-template').html()),
+   
+   render: function(){
+        this.$el.html(this.template());
+        return this;
+   }
+
+})
+
+toolbar_view = new toolbar_class();
+toolbar_view.render();
+
+var view_class = Backbone.View.extend({
+  
+   el: $("#content_container"),
+   
+   template: _.template($('#current-word-template').html()),
+   
+   model: current_word,
+   
+   progress: 1,
+   
+   events: {
+      "click #skip":          "skip",
+      "click #delete":        "delete",
+      "click #correct":       "markCorrect",
+      "click #wrong":         "markWrong",
+   },
+
+   markCorrect(){
+      this.progress++;
+      this.model.markCorrect();
+      this.model.skip();
+  },
+      
+   markWrong(){
+      this.progress++;
+      this.model.markWrong();
+      this.model.skip();
+   },
+   
+   skip: function(){
+      this.model.skip();
+   },
+
+   delete: function(){
+      this.model.delete();
+      this.model.skip();
+   },
+  
+   initialize: function(){
+       console.log("initializing view");     
+       this.model.load();
+       this.listenTo(this.model, "change", this.render);
+   },
+  
+   render: function(){
+       console.log("rendering view");     
+       //this.$el.html(this.template(this.model.attributes));
+       this.$el.html(this.template({
+           "word": this.model.attributes.word,
+           "progress": this.progress
+       }));
+       return this;
+   }   
+  
+})
+  
+
+view = new view_class();
+//view.render()
+ // view.model.set('title','unseen title')
+  
+  
+</script> 
+</body>
+</html>
