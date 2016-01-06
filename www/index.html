@@ -90,13 +90,13 @@ var SettingsModel = Backbone.Model.extend({
     },
     
     getMaxCorrect : function(){
-      return this.attributes.max_correct_in_a_row;
+      return this.get("max_correct_in_a_row");
     },
     getMaxWord : function(){
-      return this.attributes.max_word_size;
+      return this.get("max_word_size");
     },
     getSessionLength : function(){
-      this.attributes.session_length = val;
+      return this.get("session_length");
     },
     
     load: function(){
@@ -106,9 +106,8 @@ var SettingsModel = Backbone.Model.extend({
     
     update: function(){
       console.log("updating settings: "+this.toJSON() );     
-      this.set(this.toJSON());
-      console.log("triggering----------------");     
-      dispatcher.trigger('settingsUpdated')
+      this.set(this.toJSON());     
+      dispatcher.trigger('settingsUpdated'); //Let the app know settings have loaded
     }
 
   
