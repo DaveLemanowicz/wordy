@@ -22,10 +22,13 @@ def getCurrentDate():
     return '{}-{:02d}-{:02d}'.format(now.year, now.month, now.day)
 
 class Words(object):
+    '''
+    Represents the words list on the disk
+    '''
     def __init__(self):
         self.file = None
         self.filename = 'wordlist.txt'
-        self.data = None
+        self.data = None # the file is storred here as a dict
         self.change = False
         
     def _maxCorrectInARow(self):
@@ -91,7 +94,14 @@ class Words(object):
                 ret_list.append(w)
         return ret_list     
         
-    
+    def getSettings(self):
+        return self.data['settings']
+     
+    def setSettings(self,params):
+        self.data['settings']['max_correct_in_a_row'] = params['max_correct_in_a_row']
+        self.data['settings']['max_word_size'] = params['max_word_size']
+        self.data['settings']['session_length'] = params['session_length']
+        self.change = True
      
     def update(self,theword,params):
         found_index = -1
@@ -134,7 +144,8 @@ class Words(object):
                })
            self.data['settings'] = {
                'max_word_size': 4,
-               'max_correct_in_a_row': 5
+               'max_correct_in_a_row': 5,
+               'session_length': 20
            }
            self.change = True
         return self
@@ -212,6 +223,30 @@ class Word(Resource):
 
 api.add_resource(Word, '/word/<string:theword>')
 
+class Settings(Resource):
+
+    def __init__(self):
+        self.parser = reqparse.RequestParser()
+        self.parser.add_argument('max_correct_in_a_row', type=int, help='')
+        self.parser.add_argument('max_word_size', type=int, help='')
+        self.parser.add_argument('session_length', type=int, help='')
+
+    def get(self):
+        print "In settings get"
+        with Words() as wl:
+            return wl.getSettings()
+            
+    def post(self):
+        print "In settings post"
+        #import ipdb;ipdb.set_trace()
+        params = self.parser.parse_args()
+        with Words() as wl:
+            wl.setSettings(params)
+        
+    def put(self):
+      print "In settings put"
+
+api.add_resource(Settings, '/settings')
 
 class Stats(Resource):
     def get(self):

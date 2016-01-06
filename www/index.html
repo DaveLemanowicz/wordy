@@ -5,17 +5,19 @@
     <title>Wordy</title> 
     <link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.css" />
     <link rel="stylesheet" type="text/css" href="assets/wordy.css" />
+    
 </head>
 <body>
   <div id="toolbar_container"></div>
   <div id="content_container"></div>
+  <div id="settings_container"></div>
  
  
 <!-- ---------------------------------------------------------------- -->
 <!-- Templates                                                        -->
 <!-- ---------------------------------------------------------------- -->
 <script type="text/template" id="toolbar-template" >
-  <img class='settings_icon' src='assets/ic_settings_white_48dp_1x.png'/>
+  <a href='#settings' ><img class='settings_icon' src='assets/ic_settings_white_48dp_1x.png'/></a>
   <img class='stats_icon' src='assets/ic_insert_chart_white_48dp_1x.png'/>
   <div style="display: block; clear: both;"></div>
 </script>
@@ -31,6 +33,18 @@
     </div>
   </div>
 </script>
+<script type="text/template" id="settings-template" >
+  <h1>Settings</h1>
+  <p>
+      <label for="max_correct">Max correct in a row: </label><input type="text" id="max_correct" name="max_correct" size="5" value="<%= max_correct_in_a_row %>" />
+  </p>
+  <p>
+      <label for="word_size">Max word size: </label><input type="text" id="word_size" name="word_size" size="5" value="<%= max_word_size %>" />
+  </p>
+  <p>
+      <label for="session_length">Session Length: </label><input type="text" id="session_length" name="session_length" size="5" value="<%= session_length %>" />
+  </p>
+</script>
 
 <script src="js/lib/jquery-1.11.3.js" ></script> 
 <script src="js/lib/underscore-1.8.3.js" ></script> 
@@ -41,6 +55,135 @@
 <script src="js/app.js" ></script> 
 <script>
 
+var dispatcher = _.clone(Backbone.Events)
+
+// -------------------------------------------------
+// Settings 
+// -------------------------------------------------
+
+var SettingsModel = Backbone.Model.extend({
+  
+    defaults: {
+        "max_correct_in_a_row": 0, 
+        "max_word_size": 0, 
+        "session_length": 0
+    }, 
+        
+    urlRoot: "http://127.0.0.1:5000/settings",
+
+      
+    initialize : function (){
+        console.log("initializing Settings"); 
+    },
+    
+    setMaxCorrect : function(val){
+      this.set({"max_correct_in_a_row":val})
+      this.save();
+    },
+    setMaxWord : function(val){
+      this.set({"max_word_size":val})
+      this.save();
+    },
+    setSessionLength : function(val){
+      this.set({"session_length":val})
+      this.save();
+    },
+    
+    getMaxCorrect : function(){
+      return this.get("max_correct_in_a_row");
+    },
+    getMaxWord : function(){
+      return this.get("max_word_size");
+    },
+    getSessionLength : function(){
+      return this.get("session_length");
+    },
+    
+    load: function(){
+      console.log("loading settings");
+      this.fetch({"success": _.bind(this.update, this)});
+    },
+    
+    update: function(){
+      console.log("updating settings: "+this.toJSON() );     
+      this.set(this.toJSON());     
+      dispatcher.trigger('settingsUpdated'); //Let the app know settings have loaded
+    }
+
+  
+});
+var settings = new SettingsModel()
+
+
+var SettingsView = Backbone.View.extend({
+  
+   el: $("#settings_container"),
+   
+   template: _.template($('#settings-template').html()),
+   
+   model: settings,
+   
+   events: {
+     "change input#max_correct":  "maxCorrectChanged",
+     "change input#word_size":  "wordSizeChanged",
+     "change input#session_length":  "sessionLengthChanged",
+   },
+   
+   initialize: function(){
+       console.log("initializing settings view");     
+       this.model.load();
+       this.listenTo(this.model, "change", this.render);
+
+   },
+   
+   maxCorrectChanged: function(e){
+     console.log('SettingsView.maxCorrectChanged called: ' + e.target.value);
+     this.model.setMaxCorrect(e.target.value);
+   },
+   wordSizeChanged: function(e){
+     console.log('SettingsView.wordSizeChanged called: ' + e.target.value);
+     this.model.setMaxWord(e.target.value);
+   },
+   sessionLengthChanged: function(e){
+     console.log('SettingsView.sessionLengthChanged called: ' + e.target.value);
+     this.model.setSessionLength(e.target.value);
+   },
+   
+
+   render: function(){
+       console.log("rendering settings view");     
+       this.$el.html(this.template(this.model.attributes));
+       return this;
+   }   
+});
+
+
+settings_view = new SettingsView();
+
+// -------------------------------------------------
+// Toolbar
+// -------------------------------------------------
+
+
+var toolbar_class = Backbone.View.extend({
+
+   el: $("#toolbar_container"),
+   
+   template: _.template($('#toolbar-template').html()),
+   
+   render: function(){
+        this.$el.html(this.template());
+        return this;
+   }
+
+})
+
+toolbar_view = new toolbar_class();
+toolbar_view.render();
+
+// -------------------------------------------------
+// Current Word
+// -------------------------------------------------
 
 var CurrentWord = Backbone.Model.extend({
   
@@ -51,13 +194,13 @@ var CurrentWord = Backbone.Model.extend({
     
     idAttribute: "word",
     
-    //url: "http://127.0.0.1:5000/word",
     urlRoot: "http://127.0.0.1:5000/word",
-    //urlRoot: "http://192.168.1.185:5000/word",
 
+    settings : settings,
       
     initialize : function (){
-        console.log("initializing current word");     
+        console.log("initializing current word");
+        dispatcher.on('settingsUpdated', _.bind(this.load, this)) 
 
     },
     
@@ -109,21 +252,8 @@ var CurrentWord = Backbone.Model.extend({
 });
 var current_word = new CurrentWord()
 
-var toolbar_class = Backbone.View.extend({
 
-   el: $("#toolbar_container"),
-   
-   template: _.template($('#toolbar-template').html()),
-   
-   render: function(){
-        this.$el.html(this.template());
-        return this;
-   }
 
-})
-
-toolbar_view = new toolbar_class();
-toolbar_view.render();
 
 var view_class = Backbone.View.extend({
   
@@ -165,7 +295,7 @@ var view_class = Backbone.View.extend({
   
    initialize: function(){
        console.log("initializing view");     
-       this.model.load();
+       //this.model.load();
        this.listenTo(this.model, "change", this.render);
    },
   
@@ -186,6 +316,33 @@ view = new view_class();
 //view.render()
  // view.model.set('title','unseen title')
   
+
+
+// -------------------------------------------------
+// Router 
+// -------------------------------------------------
+
+var AppRouter = Backbone.Router.extend({
+    routes: {
+        "": "index",
+        "settings": "settings"
+    },
+    
+    index: function(){
+        console.log("Router index called");
+        $(settings_view.el).hide();
+        //settings_view.remove();
+    },
+    
+    settings: function(){
+        console.log("Router settings called");
+        $(settings_view.el).show();
+    }
+});
+// Initiate the router
+var app_router = new AppRouter;
+// Start Backbone history a necessary step for bookmarkable URL's
+Backbone.history.start();  
   
 </script> 
 </body>
